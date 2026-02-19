@@ -74,18 +74,20 @@ function ScoringModal({players,rules,curRound,totals,onSubmit,onCancel}){
       const heIdxs=handExtraPs.map(f=>f.i);
       if(handMode==="superJoker"){
         players.forEach((_,i)=>{
-          if(i===handP)r[i]=rules.superJokerHandScore;
+          if(i===handP){r[i]=rules.superJokerHandScore;}
           else if(heIdxs.includes(i)){const ep=handExtraPs.find(f=>f.i===i);const v=parseInt(ep.score);r[i]=!isNaN(v)?v:rules.superJokerOthersScore;}
-          else if(i===penP)r[i]=rules.superJokerOthersScore+rules.superJokerPenalty;
-          else r[i]=rules.superJokerOthersScore;
+          else{r[i]=rules.superJokerOthersScore;}
+          // Add penalty ON TOP of whatever score (even if farsh)
+          if(i===penP&&i!==handP) r[i]=(r[i]||0)+rules.superJokerPenalty;
         });
       }else{
         const m=handMode==="super"?2:1;
         players.forEach((_,i)=>{
-          if(i===handP)r[i]=rules.handScore*m;
+          if(i===handP){r[i]=rules.handScore*m;}
           else if(heIdxs.includes(i)){const ep=handExtraPs.find(f=>f.i===i);const v=parseInt(ep.score);r[i]=!isNaN(v)?v*m:(rules.handOthersScore*m);}
-          else if(i===penP)r[i]=(rules.handOthersScore+rules.handPenaltyExtra)*m;
-          else r[i]=rules.handOthersScore*m;
+          else{r[i]=rules.handOthersScore*m;}
+          // Add penalty ON TOP of whatever score (even if farsh)
+          if(i===penP&&i!==handP) r[i]=(r[i]||0)+rules.handPenaltyExtra*m;
         });
       }
     }else{
@@ -152,7 +154,7 @@ function ScoringModal({players,rules,curRound,totals,onSubmit,onCancel}){
       {type==="hand"&&<>
         <L>مين هنّد؟</L>
         <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{players.map((_,i)=><PB key={i} i={i} sel={handP} fn={setHandP}/>)}</div>
-        <L>مين الجراء الزيادة؟</L>
+        <L>مين الجزاء الزيادة؟</L>
         <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{players.map((_,i)=>i!==handP&&<PB key={i} i={i} sel={penP} fn={setPenP}/>)}</div>
         {handMode==="superJoker"&&<div style={{background:"rgba(230,57,70,0.06)",borderRadius:7,padding:7,marginTop:6,border:"1px solid rgba(230,57,70,0.12)",fontSize:10,color:"rgba(255,255,255,0.5)"}}>🃏 سوبر جوكر: الهاند {rules.superJokerHandScore} | الباقي {rules.superJokerOthersScore} | الجزاء +{rules.superJokerPenalty}</div>}
         <L>فيه أحد فرش بعد؟</L>
@@ -345,19 +347,13 @@ export default function HandGame(){
     const tl=rd.type==="hand"?(rd.isSuperJoker?"هند سوبر جوكر":rd.isSuper?"هند سوبر":"هند"):rd.type==="farsh"?(rd.isSuper?"فرش سوبر":"فرش"):"";
     let sc="نتيجة الجولة "+rn+(tl?" - "+tl:"")+": ";
     players.forEach((p,i)=>{sc+=p.name+" "+(rd.scores[i]>0?"+":"")+rd.scores[i]+(i<players.length-1?"، ":"");});
-    // Smart analysis using shared function
-    const needs=p=>{
-      const n=analyzeNeeds(p.t,leader.t,rules);
-      if(n.type==="leader") return null;
-      return p.name+" فارق "+n.diff+". يقدر يفوز بـ"+n.text;
-    };
     const DL=rules.dangerLimit||0;const dangerP=DL>0?s.filter(p=>p.t>=(DL-300)&&p.i!==leader.i):[];const overP=DL>0?s.filter(p=>p.t>=DL):[];
-    let dA="";if(dangerP.length>0){dA=" ⚠️ تنبيه! ";dangerP.forEach(p=>{dA+=p.name+" باقي "+(DL-p.t)+" ويتعدى "+DL+"! ";});}
-    if(overP.length>0){const w=leader.i,l=overP[overP.length-1].i;setOver({winner:w,loser:l});setConfetti(true);const ft=players[overP[overP.length-1].i].name+" تعدى "+DL+"! الفائز "+players[w].name+" بـ "+t[w]+". "+s.map((p,r)=>(r+1)+". "+p.name+" "+p.t).join("، ");setCmt({text:"🏆 "+ft,type:"win"});sfx("win");setTimeout(()=>speakSafe(ft),300);setTimeout(()=>setConfetti(false),5000);return;}
-    if(rn>=rules.totalRounds){const w=leader.i,l=last.i;setOver({winner:w,loser:l});setConfetti(true);const ft="انتهت! الفائز "+players[w].name+" بـ "+t[w]+". "+s.map((p,r)=>(r+1)+". "+p.name+" "+p.t).join("، ");setCmt({text:"🏆 "+ft,type:"win"});sfx("win");setTimeout(()=>speakSafe(ft),300);setTimeout(()=>setConfetti(false),5000);return;}
-    if(rn===rules.totalRounds-1){let a=sc+" "+s.map((p,r)=>(r+1)+". "+p.name+" "+p.t).join("، ")+". الجاية الأخيرة! "+(rules.noFarshLastRound?"ممنوع فرش. ":"")+leader.name+" متصدر "+leader.t+". ";s.slice(1).forEach(p=>{const n=needs(p);a+=(n||p.name+" يحتاج يقل "+(p.t-leader.t))+". ";});if(dA)a+=dA;setCmt({text:"⚡ "+a,type:"close"});sfx("close");setTimeout(()=>speakSafe(a),300);return;}
-    let full=sc+" "+s.map((p,r)=>(r+1)+". "+p.name+" "+p.t).join("، ")+".";const nd=s.slice(1).map(needs).filter(Boolean);if(nd.length)full+=" "+nd.join(". ")+".";if(dA)full+=dA;
-    setCmt({text:(dA?"⚠️ ":"📊 ")+full,type:dA?"lose":"close"});setTimeout(()=>speakSafe(full),300);
+    let dA="";if(dangerP.length>0){dA="⚠️ ";dangerP.forEach(p=>{dA+=p.name+" باقي "+(DL-p.t)+" ويتعدى "+DL+"! ";});}
+    if(overP.length>0){const w=leader.i,l=overP[overP.length-1].i;setOver({winner:w,loser:l});setConfetti(true);const ft=players[overP[overP.length-1].i].name+" تعدى "+DL+"! الفائز "+players[w].name+" بـ "+t[w];setCmt({text:"🏆 "+ft,type:"win"});sfx("win");setTimeout(()=>speakSafe(ft),300);setTimeout(()=>setConfetti(false),5000);return;}
+    if(rn>=rules.totalRounds){const w=leader.i,l=last.i;setOver({winner:w,loser:l});setConfetti(true);const ft="انتهت! الفائز "+players[w].name+" بـ "+t[w];setCmt({text:"🏆 "+ft,type:"win"});sfx("win");setTimeout(()=>speakSafe(ft),300);setTimeout(()=>setConfetti(false),5000);return;}
+    if(rn===rules.totalRounds-1){setCmt({text:"⚡ الجاية الأخيرة!"+(rules.noFarshLastRound?" ممنوع فرش!":"")+(dA?" "+dA:""),type:"close"});sfx("close");return;}
+    if(dA){setCmt({text:dA,type:"lose"});return;}
+    setCmt(null);
   };
 
   const base={direction:"rtl",fontFamily:"'Segoe UI',Tahoma,sans-serif",minHeight:"100vh",background:"linear-gradient(135deg,#0f0c29,#1a1a3e,#24243e)",color:"#fff",padding:16,position:"relative"};
@@ -384,7 +380,7 @@ export default function HandGame(){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}><button onClick={()=>setStep(1)} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.06)",color:"#fff",padding:"4px 9px",borderRadius:6,fontSize:10,cursor:"pointer"}}>← رجوع</button><h3 style={{fontSize:14,fontWeight:700,color:"#E9C46A",margin:0}}>⚙️ قوانين النقاط</h3><div/></div>
       <Tog label="🃏 الفرش" value={rules.farshAllowed} onChange={v=>R("farshAllowed",v)}/>{rules.farshAllowed&&<Box><NumIn label="نقاط الفارش" value={rules.farshScore} onChange={v=>R("farshScore",v)}/><NumIn label="نقاط الباقي" value={rules.farshOthersScore} onChange={v=>R("farshOthersScore",v)}/><NumIn label="اللي انأخذت منه" value={rules.farshStolenScore} onChange={v=>R("farshStolenScore",v)}/></Box>}
       <div style={{marginBottom:4}}><label style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)"}}>✋ الهند</label></div>
-      <Box><NumIn label="نقاط الهاند" value={rules.handScore} onChange={v=>R("handScore",v)}/><NumIn label="نقاط الباقي" value={rules.handOthersScore} onChange={v=>R("handOthersScore",v)}/><NumIn label="الجراء الزيادة" value={rules.handPenaltyExtra} onChange={v=>R("handPenaltyExtra",v)}/></Box>
+      <Box><NumIn label="نقاط الهاند" value={rules.handScore} onChange={v=>R("handScore",v)}/><NumIn label="نقاط الباقي" value={rules.handOthersScore} onChange={v=>R("handOthersScore",v)}/><NumIn label="الجزاء الزيادة" value={rules.handPenaltyExtra} onChange={v=>R("handPenaltyExtra",v)}/></Box>
       <Tog label="🚫 ممنوع فرش بآخر جولة" value={rules.noFarshLastRound} onChange={v=>R("noFarshLastRound",v)}/>
       <button onClick={startGame} style={{width:"100%",padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#2A9D8F,#264653)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:3}}>ابدأ 🎴</button>
     </div></div>);

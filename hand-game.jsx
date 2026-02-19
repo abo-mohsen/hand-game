@@ -72,21 +72,21 @@ function ScoringModal({players,rules,curRound,totals,onSubmit,onCancel}){
       });
     }else if(type==="hand"&&handP!==null){
       const heIdxs=handExtraPs.map(f=>f.i);
+      // Multiplier for farsh scores: normal=x2, super=x4, superJoker=x8
+      const farshMul=handMode==="superJoker"?8:handMode==="super"?4:2;
       if(handMode==="superJoker"){
         players.forEach((_,i)=>{
           if(i===handP){r[i]=rules.superJokerHandScore;}
-          else if(heIdxs.includes(i)){const ep=handExtraPs.find(f=>f.i===i);const v=parseInt(ep.score);r[i]=!isNaN(v)?v:rules.superJokerOthersScore;}
+          else if(heIdxs.includes(i)){const ep=handExtraPs.find(f=>f.i===i);const v=parseInt(ep.score);r[i]=!isNaN(v)?v*farshMul:rules.superJokerOthersScore;}
           else{r[i]=rules.superJokerOthersScore;}
-          // Add penalty ON TOP of whatever score (even if farsh)
           if(i===penP&&i!==handP) r[i]=(r[i]||0)+rules.superJokerPenalty;
         });
       }else{
         const m=handMode==="super"?2:1;
         players.forEach((_,i)=>{
           if(i===handP){r[i]=rules.handScore*m;}
-          else if(heIdxs.includes(i)){const ep=handExtraPs.find(f=>f.i===i);const v=parseInt(ep.score);r[i]=!isNaN(v)?v*m:(rules.handOthersScore*m);}
+          else if(heIdxs.includes(i)){const ep=handExtraPs.find(f=>f.i===i);const v=parseInt(ep.score);r[i]=!isNaN(v)?v*farshMul:(rules.handOthersScore*m);}
           else{r[i]=rules.handOthersScore*m;}
-          // Add penalty ON TOP of whatever score (even if farsh)
           if(i===penP&&i!==handP) r[i]=(r[i]||0)+rules.handPenaltyExtra*m;
         });
       }

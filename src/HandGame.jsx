@@ -214,6 +214,90 @@ const Box=({children})=><div style={{background:"rgba(255,255,255,0.015)",border
 
 const DEF={gameMode:"individual",scoringMode:"rules",totalRounds:10,dangerLimit:2000,farshAllowed:true,noFarshLastRound:true,farshScore:-30,farshOthersScore:100,farshStolenScore:130,handScore:-60,handOthersScore:200,handPenaltyExtra:50,superJokerHandScore:-240,superJokerOthersScore:800,superJokerPenalty:200,teams:[]};
 
+/* ─── Needs Analysis ─── */
+function analyzeNeeds(pT,ldrT,R){
+  const d=pT-ldrT; if(d<=0) return {diff:0,text:"متصدر 👑",type:"leader"};
+  const aF={p:pT+R.farshScore,l:ldrT+R.farshOthersScore};
+  const aH={p:pT+R.handScore,l:ldrT+R.handOthersScore+R.handPenaltyExtra};
+  const aFD={p:pT+R.farshScore*2,l:ldrT+R.farshOthersScore*2};
+  const aS={p:pT+R.handScore*2,l:ldrT+(R.handOthersScore+R.handPenaltyExtra)*2};
+  const aSJ={p:pT+R.superJokerHandScore,l:ldrT+R.superJokerOthersScore+R.superJokerPenalty};
+  if(aF.p<aF.l) return {diff:d,text:"فرش عادي ✅",type:"easy"};
+  if(aH.p<aH.l) return {diff:d,text:"هند عادي ✅",type:"easy"};
+  if(aFD.p<aFD.l) return {diff:d,text:"فرش دبل ✅",type:"medium"};
+  if(aS.p<aS.l) return {diff:d,text:"هند سوبر 🔥",type:"medium"};
+  if(aSJ.p<aSJ.l) return {diff:d,text:"سوبر جوكر 🃏",type:"hard"};
+  return {diff:d,text:"صعب يلحق ❌",type:"impossible"};
+}
+
+/* ─── Summary Modal ─── */
+function SummaryModal({players,totals,rules,rounds,onClose}){
+  const s=players.map((p,i)=>({...p,idx:i,tot:totals[i]||0})).sort((a,b)=>a.tot-b.tot);
+  const leader=s[0];const DL=rules.dangerLimit||0;
+  const typeC={leader:"#2A9D8F",easy:"#2A9D8F",medium:"#E9C46A",hard:"#E63946",impossible:"rgba(255,255,255,0.3)"};
+  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
+    <div style={{width:"100%",maxWidth:460,maxHeight:"90vh",overflowY:"auto",background:"linear-gradient(135deg,#1a1a3e,#24243e)",borderRadius:18,padding:20,border:"1px solid rgba(255,255,255,0.1)",direction:"rtl",color:"#fff"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <h3 style={{margin:0,fontSize:17,fontWeight:800,color:"#E9C46A"}}>📊 ملخص اللعبة</h3>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <span style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>جولة {rounds.length}/{rules.totalRounds}</span>
+          <button onClick={onClose} style={{width:28,height:28,borderRadius:7,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.04)",color:"#fff",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+      </div>
+
+      {/* Table Header */}
+      <div style={{display:"flex",alignItems:"center",padding:"6px 8px",marginBottom:2,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+        <span style={{width:22,fontSize:9,color:"rgba(255,255,255,0.3)",textAlign:"center"}}>#</span>
+        <span style={{flex:1,fontSize:9,color:"rgba(255,255,255,0.3)",marginRight:4}}>اللاعب</span>
+        <span style={{width:50,fontSize:9,color:"rgba(255,255,255,0.3)",textAlign:"center"}}>النقاط</span>
+        <span style={{width:45,fontSize:9,color:"rgba(255,255,255,0.3)",textAlign:"center"}}>الفارق</span>
+        <span style={{flex:1,fontSize:9,color:"rgba(255,255,255,0.3)",textAlign:"left"}}>المطلوب للفوز</span>
+      </div>
+
+      {/* Players Rows */}
+      {s.map((p,rank)=>{
+        const need=analyzeNeeds(p.tot,leader.tot,rules);
+        const isLeader=rank===0&&rounds.length>0;
+        const dangerClose=DL>0&&p.tot>=(DL-300);
+        return <div key={p.idx} style={{display:"flex",alignItems:"center",padding:"10px 8px",marginBottom:2,borderRadius:8,background:isLeader?"rgba(42,157,143,0.06)":dangerClose?"rgba(230,57,70,0.04)":"rgba(255,255,255,0.015)",border:isLeader?"1px solid rgba(42,157,143,0.1)":dangerClose?"1px solid rgba(230,57,70,0.06)":"1px solid transparent",transition:"all 0.3s ease"}}>
+          <span style={{width:22,fontSize:14,fontWeight:700,textAlign:"center"}}>{isLeader?"👑":rank+1}</span>
+          <div style={{flex:1,display:"flex",alignItems:"center",gap:5,marginRight:4}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:p.color,flexShrink:0}}/>
+            <span style={{fontSize:13,fontWeight:600}}>{p.name}</span>
+          </div>
+          <span style={{width:50,fontSize:16,fontWeight:800,textAlign:"center",color:p.tot<0?"#2A9D8F":"#fff"}}>{p.tot}</span>
+          <span style={{width:45,fontSize:11,fontWeight:600,textAlign:"center",color:need.diff>0?"rgba(230,57,70,0.7)":"#2A9D8F"}}>{need.diff>0?"+"+need.diff:"—"}</span>
+          <span style={{flex:1,fontSize:10,fontWeight:600,textAlign:"left",color:typeC[need.type]||"#fff"}}>{need.text}</span>
+        </div>;
+      })}
+
+      {/* Danger Limit Info */}
+      {DL>0&&<div style={{marginTop:12,padding:"8px 10px",borderRadius:8,background:"rgba(230,57,70,0.04)",border:"1px solid rgba(230,57,70,0.08)"}}>
+        <div style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.4)",marginBottom:4}}>⚠️ حد النقاط: {DL}</div>
+        {s.map(p=>{
+          const remaining=DL-p.tot;
+          if(remaining<=0) return <div key={p.idx} style={{fontSize:10,color:"#E63946",padding:"1px 0"}}>💀 {p.name} تعدى الحد!</div>;
+          if(remaining<=300) return <div key={p.idx} style={{fontSize:10,color:"#E9C46A",padding:"1px 0"}}>⚠️ {p.name} باقي {remaining} ويتعدى</div>;
+          return null;
+        })}
+      </div>}
+
+      {/* Stats */}
+      {rounds.length>0&&<div style={{marginTop:12,padding:"10px",borderRadius:8,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.03)"}}>
+        <div style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.4)",marginBottom:6}}>📈 إحصائيات</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.45)"}}>الجولات المتبقية: <span style={{color:"#E9C46A",fontWeight:700}}>{Math.max(0,rules.totalRounds-rounds.length)}</span></div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.45)"}}>فرش: <span style={{color:"#E9C46A",fontWeight:700}}>{rounds.filter(r=>r.type==="farsh").length}</span> | هند: <span style={{color:"#E63946",fontWeight:700}}>{rounds.filter(r=>r.type==="hand").length}</span></div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.45)"}}>أقل نقاط: <span style={{color:"#2A9D8F",fontWeight:700}}>{s[0].name} ({s[0].tot})</span></div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.45)"}}>أكثر نقاط: <span style={{color:"#E63946",fontWeight:700}}>{s[s.length-1].name} ({s[s.length-1].tot})</span></div>
+        </div>
+      </div>}
+
+      <button onClick={onClose} style={{width:"100%",marginTop:12,padding:10,borderRadius:10,border:"none",background:"linear-gradient(135deg,#E9C46A,#F4A261)",color:"#1a1a2e",fontSize:13,fontWeight:700,cursor:"pointer"}}>إغلاق</button>
+    </div>
+  </div>);
+}
+
 /* ═══ MAIN ═══ */
 export default function HandGame(){
   const[screen,setScreen]=useState("setup");const[step,setStep]=useState(1);
@@ -225,6 +309,7 @@ export default function HandGame(){
   const[scoring,setScoring]=useState(false);const[voiceP,setVoiceP]=useState(false);
   const[confirmUndo,setConfirmUndo]=useState(false);
   const[muted,setMuted]=useState(false);
+  const[showSummary,setShowSummary]=useState(false);
   const toggleMute=()=>{const nv=!muted;setMuted(nv);setVoiceMuted(nv);};
 
   const cur=rounds.length+1;const R=(k,v)=>setRules({...rules,[k]:v});
@@ -260,41 +345,11 @@ export default function HandGame(){
     const tl=rd.type==="hand"?(rd.isSuperJoker?"هند سوبر جوكر":rd.isSuper?"هند سوبر":"هند"):rd.type==="farsh"?(rd.isSuper?"فرش سوبر":"فرش"):"";
     let sc="نتيجة الجولة "+rn+(tl?" - "+tl:"")+": ";
     players.forEach((p,i)=>{sc+=p.name+" "+(rd.scores[i]>0?"+":"")+rd.scores[i]+(i<players.length-1?"، ":"");});
-    // Smart analysis: simulate what happens if this player does each move
-    const R=rules;
+    // Smart analysis using shared function
     const needs=p=>{
-      if(p.t<=leader.t) return null;
-      const d=p.t-leader.t;
-      const ldrT=leader.t;
-      const pT=p.t;
-      
-      // Simulate: if p does farsh (p gets farshScore, leader gets farshOthersScore)
-      const afterFarsh={p:pT+R.farshScore, ldr:ldrT+R.farshOthersScore};
-      const farshWin=afterFarsh.p<afterFarsh.ldr;
-      
-      // Simulate: if p does hand (p gets handScore, leader gets handOthersScore+penalty as worst case)
-      const afterHand={p:pT+R.handScore, ldr:ldrT+R.handOthersScore+R.handPenaltyExtra};
-      const handWin=afterHand.p<afterHand.ldr;
-      
-      // Simulate: if p does super hand (×2)
-      const afterSuper={p:pT+R.handScore*2, ldr:ldrT+(R.handOthersScore+R.handPenaltyExtra)*2};
-      const superWin=afterSuper.p<afterSuper.ldr;
-      
-      // Simulate: if p does super joker hand
-      const afterSJ={p:pT+R.superJokerHandScore, ldr:ldrT+R.superJokerOthersScore+R.superJokerPenalty};
-      const sjWin=afterSJ.p<afterSJ.ldr;
-      
-      // Simulate farsh double
-      const afterFarshD={p:pT+R.farshScore*2, ldr:ldrT+R.farshOthersScore*2};
-      const farshDWin=afterFarshD.p<afterFarshD.ldr;
-
-      const txt=p.name+" فارق "+d+". ";
-      if(farshWin) return txt+"يقدر يفوز بفرش عادي ✅";
-      if(handWin) return txt+"يقدر يفوز بهند عادي ✅";
-      if(farshDWin) return txt+"يقدر يفوز بفرش دبل ✅";
-      if(superWin) return txt+"يقدر يفوز بهند سوبر 🔥";
-      if(sjWin) return txt+"يقدر يفوز بسوبر جوكر 🃏";
-      return txt+"صعب يلحق حتى بسوبر جوكر ❌";
+      const n=analyzeNeeds(p.t,leader.t,rules);
+      if(n.type==="leader") return null;
+      return p.name+" فارق "+n.diff+". يقدر يفوز بـ"+n.text;
     };
     const DL=rules.dangerLimit||0;const dangerP=DL>0?s.filter(p=>p.t>=(DL-300)&&p.i!==leader.i):[];const overP=DL>0?s.filter(p=>p.t>=DL):[];
     let dA="";if(dangerP.length>0){dA=" ⚠️ تنبيه! ";dangerP.forEach(p=>{dA+=p.name+" باقي "+(DL-p.t)+" ويتعدى "+DL+"! ";});}
@@ -343,6 +398,7 @@ export default function HandGame(){
     {confetti&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,pointerEvents:"none",zIndex:100}}>{Array.from({length:30}).map((_,i)=><div key={i} style={{position:"absolute",top:-10,borderRadius:2,left:Math.random()*100+"%",animationDelay:Math.random()*2+"s",animationDuration:2+Math.random()*2+"s",backgroundColor:COLORS[i%COLORS.length],width:6+Math.random()*7+"px",height:6+Math.random()*7+"px",animation:"confettiFall linear forwards"}}/>)}</div>}
     {scoring&&<ScoringModal players={players} rules={{...rules,farshAllowed:rules.farshAllowed&&!(rules.noFarshLastRound&&isLast)}} curRound={cur} totals={totals} onSubmit={submitRound} onCancel={()=>setScoring(false)}/>}
     {voiceP&&<VoiceSettings onClose={()=>setVoiceP(false)}/>}
+    {showSummary&&<SummaryModal players={players} totals={totals} rules={rules} rounds={rounds} onClose={()=>setShowSummary(false)}/>}
 
     {/* Confirm Undo Dialog */}
     {confirmUndo&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
@@ -362,6 +418,7 @@ export default function HandGame(){
       <button onClick={reset} style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.06)",color:"#fff",padding:"5px 9px",borderRadius:7,fontSize:10,cursor:"pointer"}}>← رجوع</button>
       <h2 style={{fontSize:17,fontWeight:700,margin:0}}>🃏 الهند</h2>
       <div style={{display:"flex",gap:4,alignItems:"center"}}>
+        {rounds.length>0&&<button onClick={()=>setShowSummary(true)} style={{background:"linear-gradient(135deg,rgba(233,196,106,0.1),rgba(244,162,97,0.06))",border:"1px solid rgba(233,196,106,0.2)",color:"#E9C46A",padding:"4px 9px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer"}}>📊 ملخص</button>}
         <button onClick={()=>setVoiceP(true)} style={{background:"rgba(233,196,106,0.05)",border:"1px solid rgba(233,196,106,0.1)",color:"#E9C46A",padding:"4px 7px",borderRadius:6,fontSize:11,cursor:"pointer"}}>⚙️</button>
         <button onClick={toggleMute} style={{background:muted?"rgba(230,57,70,0.1)":"rgba(42,157,143,0.08)",border:"1px solid "+(muted?"rgba(230,57,70,0.2)":"rgba(42,157,143,0.15)"),color:muted?"#E63946":"#2A9D8F",padding:"4px 7px",borderRadius:6,fontSize:11,cursor:"pointer"}}>{muted?"🔇":"🔊"}</button>
         <div style={{background:"rgba(233,196,106,0.08)",color:"#E9C46A",padding:"3px 9px",borderRadius:12,fontSize:10,fontWeight:600}}>{cur<=rules.totalRounds?cur+"/"+rules.totalRounds:"انتهت"}</div>
